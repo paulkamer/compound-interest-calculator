@@ -1,54 +1,73 @@
 <calculator>
   <main class="calculator-container">
-    <form class="calculator-container__inputform" onsubmit={ calculateTotals }>
-      <label for="principle">Initial deposit</label>
-      <input id="principle" ref="principle" type="number" onkeyup={ calculateTotals } value={ principle } placeholder="Principle amount">
+    <div class="column-left">
+      <form class="inputform" onsubmit={ calculateTotals }>
+        <label for="principle">Initial deposit</label>
+        <input id="principle" ref="principle" type="number" onkeyup={ calculateTotals } value={ principle } placeholder="Principle amount">
 
-      <label for="interest_rate">Interest rate (%)</label>
-      <input id="interest_rate" ref="interest_rate" type="number" onkeyup={ calculateTotals } value={ interest_rate } placeholder="Interest rate (%)">
+        <label for="interest_rate">Interest rate (%)</label>
+        <input id="interest_rate" ref="interest_rate" type="number" onkeyup={ calculateTotals } value={ interest_rate } placeholder="Interest rate (%)">
 
-      <label for="years">Investment Time Span ({ years } years)</label>
-      <input id="years" ref="years" type="range" min="1" max="50" oninput={ calculateTotals } value={ years }>
+        <label for="years">Time Span: { years } years</label>
+        <input id="years" ref="years" type="range" min="1" max="50" oninput={ calculateTotals } value={ years }>
 
-      <input type="submit" value="Calculate" ref="submitbutton">
-    </form>
+        <input type="submit" value="Calculate" ref="submitbutton">
+      </form>
 
-    <div class="calculator-container__chart-container">
-      <canvas id="chart" width="200" height="100"></canvas>
+      <div class="totals-table-container">
+        <h1>Results</h1>
+
+        <p>
+          Total: { overall_total }<br/>
+          Interest: { formatValue(overall_total - this.refs.principle.value) }
+        </p>
+
+        <h2>Breakdown per year</h2>
+
+        <table class="results">
+          <thead>
+            <th>#</th>
+            <th>Year</th>
+            <th>Total</th>
+            <th>Interest</th>
+          </thead>
+          <tr each={ total, i in totals } class="results-row">
+            <td class="results-col">{ i+1 }</td>
+            <td class="results-col">{ total[OVERALL_TOTAL].year }</td>
+            <td class="results-col">{ total[OVERALL_TOTAL].value }</td>
+            <td class="results-col">{ formatValue(total[INTEREST].value) }</td>
+          </tr>
+        </table>
+      </div>
     </div>
 
-    <div class="calculator-container__totals-table-container">
-      <h1>Results - Total: { overall_total }</h`>
-
-      <table>
-        <tr each={ total, i in totals }>
-          <td>{ total[DS_OVERALL_TOTAL].year }</td><td>{ total[DS_OVERALL_TOTAL].value }</td>
-        </tr>
-      </table>
+    <div class="column-right">
+      <div class="chart-container">
+        <canvas id="chart" width="200" height="100"></canvas>
+      </div>
     </div>
   </main>
 
   <script>
-    DS_PRINCIPLE = 0
-    DS_INTEREST = 1
-    DS_OVERALL_TOTAL = 2
+    PRINCIPLE = 'PRINCIPLE'
+    INTEREST = 'INTEREST'
+    INTEREST_TOTAL = 'INTEREST_TOTAL'
+    OVERALL_TOTAL = 'OVERALL_TOTAL'
 
+    // Copy over opts/props passed in constructor. Inits the form with provided values
     Array('years', 'principle', 'interest_rate').forEach(option => this[option] = opts[option])
 
-    this.on('mount', function() {
-      this.startYear = new Date().getFullYear()
+    this.startYear = new Date().getFullYear() + 1
 
-      this.renderChart()
+    this.on('mount', () => {
+      this.calculateTotals()
       this.update() // Necessary in mount handler to ensure results table gets rendered
     })
 
    /**
     * (Re-)render the chart when inputs have changed
-    * @return {Void
     */
-   this.on('updated', function() {
-     this.renderChart()
-   })
+   this.on('updated', () => this.renderChart())
 
     /**
      * Calculate the totals
@@ -57,34 +76,44 @@
     calculateTotals (e) {
       if (e instanceof Event) e.preventDefault() // Prevent submitting form
 
+      let previousYear = null
       this.totals = Array.from({length: this.refs.years.value}, (_,i) => {
         let year = this.startYear + i
-        let total = this.calculate(i + 1)
+        let total = this.calculateForYearNumber(i + 1)
         let principle = this.refs.principle.value
+        let interest_total = total - principle
 
-        return [
-          { year, value: this.formatValue(principle) },
-          { year, value: this.formatValue(total - principle) },
-          { year, value: this.formatValue(total) },
-        ]
+        let interest = interest_total
+        if (previousYear) interest = interest_total - previousYear[INTEREST_TOTAL].value
+
+        const data = {
+          [PRINCIPLE]: { year, value: this.formatValue(principle) },
+          [INTEREST]: { year, value: this.formatValue(interest) },
+          [INTEREST_TOTAL]: { year, value: this.formatValue(interest_total) },
+          [OVERALL_TOTAL]: { year, value: this.formatValue(total) },
+        }
+
+        previousYear = data
+
+        return data
       })
 
-      this.overall_total = this.totals[this.totals.length -1][DS_OVERALL_TOTAL].value
+      this.overall_total = this.totals[this.totals.length -1][OVERALL_TOTAL].value
       this.years = this.refs.years.value
     }
 
     /**
-     * Calculate the total amount for the requested number of years
+     * Calculate the total amount for the requested yearNumber
      * Formula: P' = P(1 + r/n)^nt
      * @see https://en.wikipedia.org/wiki/Compound_interest#Mathematics_of_interest_rate_on_loans
      *
      * @return {Number}
      */
-    calculate(years) {
+     calculateForYearNumber (yearNumber) {
       let interest = this.refs.interest_rate.value / 100 // decimal
       let compoundingFreqency = 1 // @TODO support additional regular deposits
 
-      return this.refs.principle.value * Math.pow(1 + interest/compoundingFreqency, years * compoundingFreqency)
+      return this.refs.principle.value * Math.pow(1 + interest/compoundingFreqency, yearNumber * compoundingFreqency)
     }
 
     /**
@@ -126,7 +155,7 @@
           tooltips: {
             callbacks: {
               title: (tooltipItem, chart) => {
-                let total = this.totals[tooltipItem[0].index][DS_OVERALL_TOTAL].value
+                let total = this.totals[tooltipItem[0].index][OVERALL_TOTAL].value
 
                 return `${tooltipItem[0].xLabel} (total: ${total})`
               },
@@ -149,9 +178,9 @@
       if (!this.totals) this.calculateTotals()
 
       this.totals.forEach(total => {
-        this.chart.data.labels.push(total[DS_PRINCIPLE].year)
-        this.chart.data.datasets[DS_PRINCIPLE].data.push(total[DS_PRINCIPLE].value)
-        this.chart.data.datasets[DS_INTEREST].data.push(total[DS_INTEREST].value)
+        this.chart.data.labels.push(total[PRINCIPLE].year)
+        this.chart.data.datasets[0].data.push(total[PRINCIPLE].value)
+        this.chart.data.datasets[1].data.push(total[INTEREST_TOTAL].value)
       })
 
       this.chart.update()
@@ -165,8 +194,7 @@
      */
     clearChart () {
       this.chart.data.labels = []
-      this.chart.data.datasets[DS_PRINCIPLE].data = []
-      this.chart.data.datasets[DS_INTEREST].data = []
+      this.chart.data.datasets.forEach((_, i) => (this.chart.data.datasets[i].data = []))
     }
   </script>
 
@@ -176,22 +204,42 @@
       flex-direction: row;
       flex-wrap: wrap;
       width: 70vw;
+      height: 100%;
       margin: auto;
     }
-    .calculator-container__inputform {
-      flex-basis: 40%;
+    .column-left {
+      display: flex;
+      flex-direction: column;
+      flex-basis: 30%;
+      height: 100%;
     }
-    .calculator-container__inputform label {
+
+    .inputform label {
       font-weight: bold;
     }
 
-    .calculator-container__inputform label + input {
+    .inputform label + input {
       display: block;
       margin-bottom: 1em;
     }
 
-    .calculator-container__chart-container {
+    .totals-table-container {
+      overflow: auto;
+    }
+    .results {
+      border-collapse: separate;
+      border-spacing: 0px;
+      line-height: 1.5em;
+    }
+
+    .results .results-col {
+      border: 1px solid black;
+      padding: 0 1em;
+    }
+
+    .column-right {
       flex-basis: 60%;
+      margin: auto;
     }
   </style>
 </calculator>

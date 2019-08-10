@@ -3,5 +3,9 @@
   "version": "0.0.1",
   "description": "A compound interest calculator",
   "author": "Paul Kamer <paulkamer@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+
+  "scripts": {
+    "start": "serve"
+  }
 }

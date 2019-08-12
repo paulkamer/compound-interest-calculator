@@ -1,14 +1,19 @@
 <html>
   <head>
+    <link rel="stylesheet" href="styles.css" type="text/css" />
   </head>
   <body>
     <calculator />
 
-    <script type="riot/tag" src="calculator.tag.html"></script>
+    <script src="calculator.riot" type="riot"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/riot@3.8/riot+compiler.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.min.js" integrity="sha256-c0m8xzX5oOBawsnLVpHnU2ieISOvxi584aNElFl2W6M=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/riot/4.3.8/riot+compiler.min.js" integrity="sha256-l5auXpgh5z+x6bpRU1gT4W67wLPWW9fMlnidzwYK8nA=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js" integrity="sha256-Uv9BNBucvCPipKQ2NS9wYpJmi8DTOEfTA/nH2aoJALw=" crossorigin="anonymous"></script>
 
-    <script>riot.mount('calculator', { years: 5, principle: 1000, interest_rate: 5 })</script>
+    <script>
+      riot.compile().then(() => {
+        riot.mount('calculator', { years: 5, principle: 1000, interest_rate: 5 })
+      })
+    </script>
   </body>
 </html>

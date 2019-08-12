@@ -1,7 +1,7 @@
 {
   "name": "compound-interest-calculator",
   "version": "0.0.1",
-  "description": "A compound interest calculator",
+  "description": "A basic riot.js-based compound interest calculator - Riot.js experiment",
   "author": "Paul Kamer <paulkamer@gmail.com>",
   "license": "MIT",
 

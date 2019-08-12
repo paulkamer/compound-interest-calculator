@@ -1,0 +1,205 @@
+<calculator>
+  <main class="calculator-container">
+    <div class="column-left">
+      <form class="inputform" onsubmit={ calculateTotals }>
+        <label for="principle">Initial deposit</label>
+        <input id="principle" type="number" onchange={ calculateTotals } value={ state.principle } placeholder="Principle amount">
+
+        <label for="interest_rate">Interest rate (%)</label>
+        <input id="interest_rate" type="number" onchange={ calculateTotals } value={ state.interest_rate } placeholder="Interest rate (%)">
+
+        <label for="years">Time Span: { state.years } years</label>
+        <input id="years" type="range" min="1" max="50" oninput={ calculateTotals } value={ state.years }>
+      </form>
+
+      <div class="totals-table-container">
+        <h1>Results</h1>
+
+        <p>
+          Total: { state.overall_total }<br/>
+          Interest: { state.interest_total }
+        </p>
+
+        <h2>Breakdown per year</h2>
+
+        <table class="results">
+          <thead>
+            <th>#</th>
+            <th>Year</th>
+            <th>Total</th>
+            <th>Interest</th>
+          </thead>
+          <tr each={ (total, i) in state.totals } class="results-row">
+            <td class="results-col">{ i+1 }</td>
+            <td class="results-col">{ total.year }</td>
+            <td class="results-col">{ total[OVERALL_TOTAL] }</td>
+            <td class="results-col">{ total[INTEREST] }</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="column-right">
+      <div class="chart-container">
+        <canvas id="chart" width="200" height="100"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    export default {
+      PRINCIPLE: 'PRINCIPLE',
+      INTEREST: 'INTEREST',
+      INTEREST_TOTAL: 'INTEREST_TOTAL',
+      OVERALL_TOTAL: 'OVERALL_TOTAL',
+
+      onBeforeMount(props, state) {
+        this.state = {
+          years: props.years,
+          principle: props.principle,
+          interest_rate: props.interest_rate,
+          startYear: new Date().getFullYear() + 1,
+          totals: [],
+        }
+      },
+
+      onMounted() {
+        this.calculateTotals()
+      },
+
+      /**
+      * (Re-)render the chart when inputs have changed
+      */
+     onUpdated () {
+       this.renderChart()
+     },
+
+      /**
+      * Calculate the totals
+      */
+      calculateTotals (e) {
+        if (e instanceof Event) {
+          e.preventDefault() // Prevent submitting form
+
+          this.update({ [e.target.id]: e.target.value })
+        }
+
+        let previousYear = null
+        let totals = Array.from({length: this.state.years}, (_,i) => {
+          let total = this.calculateForYearNumber(i + 1)
+          let interest_total = total - this.state.principle
+
+          let interest = interest_total
+          if (previousYear) interest = interest_total - previousYear[this.INTEREST_TOTAL]
+
+          const currentYear = {
+            year: this.state.startYear + i,
+            [this.PRINCIPLE]: this.formatValue(this.state.principle),
+            [this.INTEREST]: this.formatValue(interest),
+            [this.INTEREST_TOTAL]: this.formatValue(interest_total),
+            [this.OVERALL_TOTAL]: this.formatValue(total),
+          }
+
+          previousYear = currentYear
+
+          return currentYear
+        })
+
+        this.update({
+          totals: totals,
+          overall_total: totals[totals.length -1][this.OVERALL_TOTAL],
+          interest_total: previousYear[this.INTEREST_TOTAL],
+        })
+      },
+
+      /**
+      * Calculate the total amount for the requested yearNumber
+      * Formula: P' = P(1 + r/n)^nt
+      * @see https://en.wikipedia.org/wiki/Compound_interest#Mathematics_of_interest_rate_on_loans
+      *
+      * @return {Number}
+      */
+      calculateForYearNumber (yearNumber) {
+        let interest = this.state.interest_rate / 100 // decimal
+        let compoundingFreqency = 1 // @TODO support additional regular deposits
+
+        return this.state.principle * Math.pow(1 + interest/compoundingFreqency, yearNumber * compoundingFreqency)
+      },
+
+      /**
+      * Round a number to a given number of decimals
+      * @TODO support multiple number formats (thousands separator, decimal separator)
+      *
+      * @return {Number}
+      */
+      formatValue (value, decimals = 2) {
+        return Math.round(value * Math.pow(10, decimals)) / Math.pow(10, decimals)
+      },
+
+      /**
+      * Initialize the chart.js object
+      * @see http://www.chartjs.org/docs/latest/
+      */
+      initChart () {
+        this.chart = new Chart(document.getElementById('chart'), {
+          type: 'bar',
+          data: {
+            datasets: [
+              { label: 'Total principle', backgroundColor: 'orange' },
+              { label: 'Total interest', backgroundColor: 'red' },
+            ],
+          },
+          options: {
+            scales: {
+              xAxes: [{
+                stacked: true,
+              }],
+              yAxes: [{
+                stacked: true,
+                ticks: {
+                  beginAtZero:true
+                }
+              }]
+            },
+            tooltips: {
+              callbacks: {
+                title: (tooltipItem, chart) => {
+                  let total = this.state.totals[tooltipItem[0].index][this.OVERALL_TOTAL]
+
+                  return `${tooltipItem[0].xLabel} (total: ${total})`
+                },
+              }
+            },
+          }
+        })
+      },
+
+      /**
+      * (Re-)render the chart.js chart
+      * By pushing the data points onto the datasets, the chart animates nicely
+      */
+      renderChart () {
+        if (!this.chart) this.initChart()
+
+        this.clearChart()
+
+        this.state.totals.forEach(total => {
+          this.chart.data.labels.push(total.year)
+          this.chart.data.datasets[0].data.push(total[this.PRINCIPLE])
+          this.chart.data.datasets[1].data.push(total[this.INTEREST_TOTAL])
+        })
+
+        this.chart.update()
+      },
+
+      /**
+      * Clear the chart.js chart
+      * Necessary to ensure the chart animates correctly when new data is added to it
+      */
+      clearChart () {
+        this.chart.data.labels = []
+        this.chart.data.datasets.forEach((_, i) => (this.chart.data.datasets[i].data = []))
+      },
+    }
+  </script>
+</calculator>

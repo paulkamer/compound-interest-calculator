@@ -1,7 +1,7 @@
 # Compound interest calculator
 A compound interest calculator - an experiment with [riot.js](https://github.com/riot/riot)
 
-**Demo:** https://codepen.io/paulkamer/full/eqPRQb
+**Demo:** https://codesandbox.io/embed/compound-interest-calculator-4d5kf?fontsize=14&view=preview
 
 - Built with [riot.js](https://github.com/riot/riot), with [in-browser compilation](http://riotjs.com/guide/compiler/#in-browser-compilation)
 - Chart is rendered with [chart.js](https://github.com/chartjs/Chart.js)
